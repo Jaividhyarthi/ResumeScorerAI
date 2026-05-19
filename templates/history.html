@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ResumeIQ — History</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,400&family=Epilogue:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/css/styles.css"/>
+  <style>
+    .wrap { max-width: 960px; margin: 0 auto; padding: 40px; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text-muted); text-decoration: none; margin-bottom: 24px; border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; transition: all 0.15s; }
+    .back-link:hover { color: var(--accent); border-color: var(--accent); }
+    .page-title { font-family: var(--font-display); font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 4px; }
+    .page-title em { font-style: italic; color: var(--accent); }
+    .page-sub { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 32px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+    .stat-val { font-family: var(--font-display); font-size: 1.8rem; font-weight: 800; color: var(--accent); letter-spacing: -0.03em; margin-bottom: 4px; }
+    .stat-lbl { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+    .table-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .table-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--border); }
+    .table-title { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
+    .clear-btn { font-size: 0.7rem; color: var(--red); background: none; border: 1px solid rgba(154,74,74,0.3); border-radius: 4px; padding: 5px 12px; cursor: pointer; font-family: var(--font-body); transition: all 0.15s; }
+    .clear-btn:hover { background: var(--red-dim); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { text-align: left; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface-2); }
+    tbody td { padding: 12px 16px; font-size: 0.78rem; color: var(--text-muted); }
+    .grade-badge { font-family: var(--font-display); font-size: 0.9rem; font-weight: 700; }
+    .score-bar { height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; margin-top: 4px; width: 60px; }
+    .score-fill { height: 100%; border-radius: 2px; }
+    .empty-msg { text-align: center; padding: 48px; color: var(--text-dim); font-size: 0.82rem; }
+    @media (max-width: 700px) { .stats-grid { grid-template-columns: 1fr 1fr; } .wrap { padding: 24px; } }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <div class="logo">
+      <div class="logo-box">R<em>IQ</em></div>
+      <span class="logo-text">Resume<em>IQ</em></span>
+    </div>
+    <div class="header-mid">Analysis History</div>
+    <a href="/" class="nav-link">← Scorer</a>
+  </header>
+
+  <div class="wrap">
+    <a href="/" class="back-link">← Back to Scorer</a>
+    <div class="page-title">Analysis <em>History</em></div>
+    <div class="page-sub">All past resume analyses stored in the local database.</div>
+
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val" id="sTotal">—</div><div class="stat-lbl">Resumes Scored</div></div>
+      <div class="stat-card"><div class="stat-val" id="sAvg">—</div><div class="stat-lbl">Average Score</div></div>
+      <div class="stat-card"><div class="stat-val" id="sMax">—</div><div class="stat-lbl">Highest Score</div></div>
+      <div class="stat-card"><div class="stat-val" id="sMin">—</div><div class="stat-lbl">Lowest Score</div></div>
+    </div>
+
+    <div class="table-section">
+      <div class="table-header">
+        <div class="table-title">All Records</div>
+        <button class="clear-btn" onclick="clearAll()">Clear All</button>
+      </div>
+      <div id="tableContent"><div class="empty-msg">Loading...</div></div>
+    </div>
+  </div>
+
+  <footer style="padding:16px 40px; border-top:1px solid var(--border); font-size:0.65rem; color:var(--text-dim); text-align:center; margin-top: auto;">
+    ResumeIQ · Powered by Groq LLaMA · SQLite
+  </footer>
+</div>
+
+<script>
+const GRADE_COLORS = { 'A+':'#5a9a5a','A':'#5a9a5a','B+':'#7a9a5a','B':'#9a9a4a','C+':'#c8a96e','C':'#9a7a3a','D':'#9a5a3a','F':'#9a4a4a' };
+
+async function loadData() {
+  try {
+    const [histRes, statsRes] = await Promise.all([fetch('/api/history'), fetch('/api/stats')]);
+    const hist = await histRes.json();
+    const stats = await statsRes.json();
+    renderStats(stats);
+    renderTable(hist);
+  } catch(e) {
+    document.getElementById('tableContent').innerHTML = '<div class="empty-msg">Could not load data.</div>';
+  }
+}
+
+function renderStats(s) {
+  document.getElementById('sTotal').textContent = s.total;
+  document.getElementById('sAvg').textContent = s.avg_score;
+  document.getElementById('sMax').textContent = s.max_score || '—';
+  document.getElementById('sMin').textContent = s.min_score || '—';
+}
+
+function renderTable(history) {
+  if (!history.length) {
+    document.getElementById('tableContent').innerHTML = '<div class="empty-msg">No analyses yet. Score some resumes!</div>';
+    return;
+  }
+
+  const rows = history.map(r => {
+    const color = r.score >= 80 ? '#5a9a5a' : r.score >= 60 ? '#c8a96e' : '#9a4a4a';
+    const gradeColor = GRADE_COLORS[r.grade] || '#888';
+    return `<tr>
+      <td style="color:var(--text-dim); font-size:0.68rem">${r.timestamp}</td>
+      <td style="color:var(--text); font-weight:500; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${r.filename}</td>
+      <td>${r.job_role}</td>
+      <td>
+        <div style="font-weight:600; color:${color}">${r.score}/100</div>
+        <div class="score-bar"><div class="score-fill" style="width:${r.score}%; background:${color}"></div></div>
+      </td>
+      <td><span class="grade-badge" style="color:${gradeColor}">${r.grade}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tableContent').innerHTML = `
+    <table>
+      <thead><tr><th>Timestamp</th><th>File</th><th>Target Role</th><th>Score</th><th>Grade</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function clearAll() {
+  if (!confirm('Delete all analysis history?')) return;
+  await fetch('/api/clear', { method: 'DELETE' });
+  loadData();
+}
+
+loadData();
+</script>
+</body>
+</html>
